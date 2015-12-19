@@ -5,12 +5,13 @@ import threading
 import time
 import urllib
 import os
+import re
 
 
 stateLock = threading.Lock()
 
-class website:
 
+class website:
     """
     This class handles URL formatting
     And checking if the website is online
@@ -23,21 +24,78 @@ class website:
         if not site.endswith("/"):
             site = site + "/"
         self.address = site
-        print("[?] Checking if website online")
-        self.checkStatus(self.address)
+
+        print("[?] Checking if is website online")
+        statusCode = self.checkStatus(self.address)
+        if statusCode == 200:
+            print("[+] Website seem online!")
+        elif statusCode == 404:
+            print("[-] Website seem down")
+            exit()
+        else:
+            print("[?] Received HTTP Code : ", statusCode)
+            exit()
+
+        self.checkRobot(self.address)
 
     def checkStatus(self, address):
         """ This function returns the status of the website """
-        respCode = urllib.urlopen(address).getcode()
-        if respCode == 200:
-            print("[+] Website seem online!")
-        elif respCode == 404:
-            print("[-] Website seem down!")
-            exit()
-        else:
-            print("[?] Received HTTP Code : %s" % respCode)
+        try:
+            return urllib.urlopen(address).getcode()
+        except IOError:
+            print("[!] Something wrong with your address")
             exit()
 
+
+    def checkRobot(self,address):
+        """
+        This function is to check if robots.txt/robot.txt exist and see if the
+        Admin path is already in there
+        """
+        print("[?] Checking for robot file")
+        path = ["robot.txt","robots.txt"]
+        urls = [address + i for i in path]
+
+        for url in urls:
+            statusCode = self.checkStatus(url)
+            if statusCode == 200:
+                print("\n[+] %s \n[+] Exists, reading content" % url)
+                info = self.parseDir(url)
+                if info:
+                    print("[=] Interesting Information found in robot file")
+                    print("="*80)
+                    for line in info:
+                        print "\t"+line
+                    print("="*80)
+                else:
+                    print("[-] Nothing useful found in robot file")
+
+    def getPage(self,address):
+        return urllib.urlopen(address).readlines()
+
+    def parseDir(self,address):
+        DirPattern = re.compile(r".+: (.+)\n")
+        interestingInfo = []
+        dirs = []
+        keyword = ["admin","Administrator","login","user","controlpanel",
+                   "wp-admin","cpanel","userpanel","client","account"]
+        """
+        Disallow: /edu/cs4hs/
+        Disallow: /trustedstores/s/
+        Disallow: /trustedstores/tm2
+        Disallow: /trustedstores/verify
+        Disallow: /adwords/proposal
+        """
+        page = self.getPage(address)
+        for line in page:
+            if DirPattern.findall(line):
+                dirs.append(DirPattern.findall(line)[0])
+
+        for key in keyword:
+            for directory in dirs:
+                if key in directory:
+                    interestingInfo.append(directory)
+        return interestingInfo
 
 class wordlist:
     """ This function loads the wordlsit """
@@ -68,7 +126,7 @@ class scanThread(threading.Thread):
                 raw_input("[+] Press Enter ")
                 print("[+] Exiting Program")
                 os._exit(1)
-                
+
             else:
                 stateLock.acquire()
                 print("[-] Tried : %s" % url)
@@ -123,10 +181,11 @@ class mainApp:
             print("[=] Number of threads = 10")
             threadCount = 20
         else:
-            print("[=] Number of threads = ", int(threadCount))
+            print("[=] Number of threads = %d" % int(threadCount))
         threadList = []
         global starttime
         starttime = time.time()
+
         for i in range(0, int(threadCount)):
             thread = scanThread(self.queue)
             thread.setDaemon(True)
