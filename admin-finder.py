@@ -79,13 +79,7 @@ class website:
         dirs = []
         keyword = ["admin","Administrator","login","user","controlpanel",
                    "wp-admin","cpanel","userpanel","client","account"]
-        """
-        Disallow: /edu/cs4hs/
-        Disallow: /trustedstores/s/
-        Disallow: /trustedstores/tm2
-        Disallow: /trustedstores/verify
-        Disallow: /adwords/proposal
-        """
+        
         page = self.getPage(address)
         for line in page:
             if DirPattern.findall(line):
