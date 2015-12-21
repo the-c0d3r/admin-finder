@@ -79,7 +79,7 @@ class website:
         dirs = []
         keyword = ["admin","Administrator","login","user","controlpanel",
                    "wp-admin","cpanel","userpanel","client","account"]
-        
+
         page = self.getPage(address)
         for line in page:
             if DirPattern.findall(line):
@@ -146,9 +146,10 @@ def main():
         mainApp(address, pathlist)
         # Runs the main Application
     except KeyboardInterrupt:
-        print("\n[~] Ctrl + C Detected!")
-        print("[~] Exiting")
-        exit()
+        print("\n[-] Ctrl + C Detected")
+        print("[-] Exiting")
+        os._exit(1)
+
 
 
 class mainApp:
@@ -170,28 +171,34 @@ class mainApp:
         stateLock.release()
 
     def run(self):
-        threadCount = raw_input("[+] Enter number of threads [10]: ")
-        if not threadCount:
-            print("[=] Number of threads = 10")
-            threadCount = 20
-        else:
-            print("[=] Number of threads = %d" % int(threadCount))
-        threadList = []
-        global starttime
-        starttime = time.time()
+        try:
+            print("[!] Press Ctrl + Z to stop while scanning")
+            threadCount = raw_input("[+] Enter number of threads [10]: ")
+            if not threadCount:
+                print("[=] Number of threads = 10")
+                threadCount = 20
+            else:
+                print("[=] Number of threads = %d" % int(threadCount))
 
-        for i in range(0, int(threadCount)):
-            thread = scanThread(self.queue)
-            thread.setDaemon(True)
-            thread.start()
-            threadList.append(thread)
+            threadList = []
+            global starttime
+            starttime = time.time()
 
-        # Waiting for all threads to finish
-        self.queue.join()
-        print("\n\n[-] Admin page not found!")
-        for thread in threadList:
-            thread.join()
-        exit()
+            for i in range(0, int(threadCount)):
+                thread = scanThread(self.queue)
+                #thread.daemon = True
+                threadList.append(thread)
+                thread.start()
+            # Waiting for all threads to finish
+            self.queue.join()
+            print("\n\n[-] Admin page not found!")
+            for thread in threadList:
+                thread.join()
+        except KeyboardInterrupt:
+            stateLock.acquire()
+            print("\n[~] Ctrl + C Detected!")
+            print("[~] Exiting")
+            os._exit(1)
 
 if __name__ == "__main__":
     main()
