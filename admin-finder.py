@@ -1,12 +1,14 @@
+# -*- coding: utf-8 -*-
 #!/usr/bin/env python
 
+from __future__ import division
 import Queue
 import threading
 import time
 import urllib
 import os
 import re
-
+import sys
 
 stateLock = threading.Lock()
 
@@ -123,7 +125,7 @@ class scanThread(threading.Thread):
 
             else:
                 stateLock.acquire()
-                print("[-] Tried : %s" % url)
+                #print("[-] Tried : %s" % url)
                 stateLock.release()
             self.queue.task_done()
             # Release task completed status
@@ -149,6 +151,35 @@ def main():
         print("\n[-] Ctrl + C Detected")
         print("[-] Exiting")
         os._exit(1)
+
+
+def progressBar(q):
+    symbol = "="
+    emptySymbol = "-"
+    maxJob = q.qsize()
+    maxlinesize = 20
+    while not q.empty():
+        current = q.qsize()
+        currentProgress = 100 - ((current / maxJob) * 100)
+        #print "Current : %s, progress = %s, maxJob = %s" % (current,currentProgress,maxJob)
+        if currentProgress < 95:
+            bar = symbol * int(currentProgress/(100/maxlinesize))
+        elif currentProgress > 95:
+            bar = symbol * maxlinesize
+        remaining = emptySymbol * (maxlinesize - len(bar))
+        line = "\rProgress : [%s%s] %.2f%%" % (bar,remaining,currentProgress)
+        #line = "\rو︻̷┻̿═━一 [%s%s] %.2f%%" % (bar, remaining,currentProgress)
+        threading.Thread(target=printoutput,args=(line,)).start()
+        # sys.stdout.write(line)
+        # sys.stdout.flush()
+        # time.sleep(1)
+
+def printoutput(data):
+    stateLock.acquire()
+    sys.stdout.write(data)
+    sys.stdout.flush()
+    stateLock.release()
+    time.sleep(0.5)
 
 
 
@@ -184,6 +215,10 @@ class mainApp:
             global starttime
             starttime = time.time()
 
+            progressbar = threading.Thread(target=progressBar,args=(self.queue,))
+            progressbar.daemon = True
+            progressbar.start()
+
             for i in range(0, int(threadCount)):
                 thread = scanThread(self.queue)
                 #thread.daemon = True
@@ -192,6 +227,7 @@ class mainApp:
             # Waiting for all threads to finish
             self.queue.join()
             print("\n\n[-] Admin page not found!")
+            progressbar.join()
             for thread in threadList:
                 thread.join()
         except KeyboardInterrupt:
