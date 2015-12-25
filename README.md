@@ -12,3 +12,8 @@ Features
 ---
 - Check the robots.txt file, see if there is any useful information in it
 - Locates admin webpage using over 800 lines of dictionary list
+
+
+![imgur](http://i.imgur.com/sSY5sbH.png)
+
+![imgur](http://i.imgur.com/p3oYEmI.png)
