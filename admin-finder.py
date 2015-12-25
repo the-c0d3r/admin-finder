@@ -69,13 +69,18 @@ class website:
                     for line in info:
                         print "\t"+line
                     print("="*80)
+
+                    try:
+                        raw_input("[+] Ctrl + C to stop")
+                    except KeyboardInterrupt:
+                        os._exit(1)
                 else:
                     print("[-] Nothing useful found in robot file")
 
-    def getPage(self,address):
+    def getPage(self, address):
         return urllib.urlopen(address).readlines()
 
-    def parseDir(self,address):
+    def parseDir(self, address):
         DirPattern = re.compile(r".+: (.+)\n")
         interestingInfo = []
         dirs = []
@@ -83,10 +88,12 @@ class website:
                    "wp-admin","cpanel","userpanel","client","account"]
 
         page = self.getPage(address)
+        # Parsing the robot file content for directory
         for line in page:
             if DirPattern.findall(line):
                 dirs.append(DirPattern.findall(line)[0])
 
+        # Checking if the directory contains juicy information
         for key in keyword:
             for directory in dirs:
                 if key in directory:
@@ -97,6 +104,7 @@ class wordlist:
     """ This function loads the wordlsit """
     def __init__(self):
         try:
+            # read the file and remove \n at the line ending
             self.load = [i.replace('\n', '') for i in open('wordlist.txt').readlines()]
         except IOError:
             print("[!] I/O Error, wordlist.txt not found")
@@ -107,7 +115,6 @@ class scanThread(threading.Thread):
     def __init__(self, q):
         threading.Thread.__init__(self)
         self.queue = q
-        #self.run()
 
     def run(self):
         while not self.queue.empty():
@@ -119,7 +126,7 @@ class scanThread(threading.Thread):
                 stateLock.acquire()
                 print("\n\n[+] Admin page found in %.2f seconds" % (time.time() - starttime))
                 print("[=] %s" % url)
-                raw_input("[+] Press Enter ")
+                raw_input("[+] Press Enter to exit")
                 print("[+] Exiting Program")
                 os._exit(1)
 
@@ -226,7 +233,8 @@ class mainApp:
                 thread.start()
             # Waiting for all threads to finish
             self.queue.join()
-            print("\n\n[-] Admin page not found!")
+            print("\n\n[=] Time elasped : %.2f seconds" % float(time.time()-starttime))
+            print("[-] Admin page not found!")
             progressbar.join()
             for thread in threadList:
                 thread.join()
