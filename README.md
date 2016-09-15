@@ -7,6 +7,8 @@ Usage:
 
 Note : If you see `Name Resoultion Error` it means you are stressing the server with too many threads. Lower your thread count and it will disappear.
 
+**Disclaimer: For Educational Purpose only. Use at your own risk, it is very easy to detect such attempts**
+
 
 Features
 ---
