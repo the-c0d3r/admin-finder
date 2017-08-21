@@ -69,10 +69,6 @@ class wordlist:
         wordlist = []
         for path in self.load:
             wordlist.append(address + path if address.endswith("/") else address + "/" + path)
-            # if address.endswith("/"):
-            #     wordlist.append(address + path)
-            # else:
-            #     wordlist.append(address + "/" + path)
         return wordlist
 
 
@@ -90,8 +86,11 @@ class worker(multiprocessing.Process):
 
             if next_task == None:
                 self.found_event.set()
-                self.term()
                 break
+
+            with stateLock:
+                sys.stdout.write("\r[=] Trying : {}{}".format(next_task, " " * 50))
+                sys.stdout.flush()
 
             if scanner(next_task) == 200:
                 # means the admin panel is found
@@ -102,22 +101,6 @@ class worker(multiprocessing.Process):
                     self.found_event.set()
                     break
 
-
-    def term(self):
-        print("Process terminating")
-
-# class progressReporter(multiprocessing.Process):
-#     def __init__(self, taskQ):
-#         multiprocessing.Process.__init__(self)
-#         self.taskQ = taskQ
-#         self.max_progress = 0
-
-#     def run(self):
-#         current_num = self.taskQ.qsize
-#         percentage = float(100 - (current_num / max_progress) * 100)
-#         with stateLock:
-#             sys.stdout.write("\r[?] Scanning : {}%% done".format(percentage))
-#             sys.stdout.flush()
 
 class controller:
     def __init__(self, progSettings):
@@ -143,25 +126,15 @@ class controller:
         self.found_event  = multiprocessing.Event()
         self.quit_event   = multiprocessing.Event()
 
-        self.createJobs()
-
-        # reporter = progressReporter(self.queue)
-        # reporter.max_progress = self.queue.size()
-        # reporter.start()
-
-        self.startWorkers()
-        self.found_event.wait()
-        self.quit_event.set()
-
-        # while !self.queue.empty():
-        # try:
-        #     for workerProc in self.processPool:
-        #         workerProc.join()
-
-        # except KeyboardInterrupt:
-        #     print("[-] Ctrl + C detected, terminating processes")
-        #     for workerProc in self.processPool:
-        #         workerProc.terminate()
+        try:
+            self.createJobs()
+            self.startWorkers()
+            self.found_event.wait()
+            self.quit_event.set()
+        except KeyboardInterrupt:
+            print("\r\n[-] Ctrl + C detected, terminating processes")
+            for workerProc in self.processPool:
+                workerProc.terminate()
 
     def _init_mass_scanner(self):
         pass
