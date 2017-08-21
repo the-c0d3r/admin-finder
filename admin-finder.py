@@ -1,248 +1,196 @@
 # -*- coding: utf-8 -*-
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
-from __future__ import division
-import Queue
-import threading
-import time
-import urllib
+
+import argparse
+import multiprocessing
 import os
+import random
 import re
+import requests
 import sys
-
-stateLock = threading.Lock()
-
-
-class website:
-    """
-    This class handles URL formatting
-    And checking if the website is online
-    """
-
-    def __init__(self, data):
-        site = data
-        if not data.startswith("http"):
-            site = "http://" + site
-        if not site.endswith("/"):
-            site = site + "/"
-        self.address = site
-
-        print("[?] Checking if is website online")
-        statusCode = self.checkStatus(self.address)
-        if statusCode == 200:
-            print("[+] Website seem online!")
-        elif statusCode == 404:
-            print("[-] Website seem down")
-            exit()
-        else:
-            print("[?] Received HTTP Code : ", statusCode)
-            exit()
-
-        self.checkRobot(self.address)
-
-    def checkStatus(self, address):
-        """ This function returns the status of the website """
-        try:
-            return urllib.urlopen(address).getcode()
-        except IOError:
-            print("[!] Something wrong with your address")
-            exit()
+import time
+import Queue
 
 
-    def checkRobot(self,address):
-        """
-        This function is to check if robots.txt/robot.txt exist and see if the
-        Admin path is already in there
-        """
-        print("[?] Checking for robot file")
-        path = ["robot.txt","robots.txt"]
-        urls = [address + i for i in path]
+global stateLock
+stateLock = multiprocessing.Lock()
+cpu_count = multiprocessing.cpu_count()
 
-        for url in urls:
-            statusCode = self.checkStatus(url)
-            if statusCode == 200:
-                print("\n[+] %s \n[+] Exists, reading content" % url)
-                info = self.parseDir(url)
-                if info:
-                    print("[=] Interesting Information found in robot file")
-                    print("="*80)
-                    for line in info:
-                        print "\t"+line
-                    print("="*80)
 
-                    try:
-                        raw_input("[+] Ctrl + C to stop")
-                    except KeyboardInterrupt:
-                        os._exit(1)
-                else:
-                    print("[-] Nothing useful found in robot file")
+def urlFormatter(url):
+    """ return properly formatted URLs """
+    formatted_url = "http://" + url if not url.startswith("http") else url
+    return formatted_url
 
-    def getPage(self, address):
-        return urllib.urlopen(address).readlines()
+def getHeader():
+    """ Returns randomly chosen UserAgent """
+    UserAgents = [
+        'Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.1.3) Gecko/20090913 Firefox/3.5.3',
+        'Mozilla/5.0 (Windows; U; Windows NT 6.1; en; rv:1.9.1.3) Gecko/20090824 Firefox/3.5.3 (.NET CLR 3.5.30729)',
+        'Mozilla/5.0 (Windows; U; Windows NT 5.2; en-US; rv:1.9.1.3) Gecko/20090824 Firefox/3.5.3 (.NET CLR 3.5.30729)',
+        'Mozilla/5.0 (Windows; U; Windows NT 6.1; en-US; rv:1.9.1.1) Gecko/20090718 Firefox/3.5.1',
+        'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US) AppleWebKit/532.1 (KHTML, like Gecko) Chrome/4.0.219.6 Safari/532.1',
+        'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.1; WOW64; Trident/4.0; SLCC2; .NET CLR 2.0.50727; InfoPath.2)',
+        'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.2; Win64; x64; Trident/4.0)',
+        'Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 5.1; Trident/4.0; SV1; .NET CLR 2.0.50727; InfoPath.2)',
+        'Mozilla/5.0 (Windows; U; MSIE 7.0; Windows NT 6.0; en-US)',
+        'Mozilla/4.0 (compatible; MSIE 6.1; Windows XP)',
+        'Opera/9.80 (Windows NT 5.2; U; ru) Presto/2.5.22 Version/10.51'
+    ]
+    return random.choice(UserAgents)
 
-    def parseDir(self, address):
-        DirPattern = re.compile(r".+: (.+)\n")
-        interestingInfo = []
-        dirs = []
-        keyword = ["admin","Administrator","login","user","controlpanel",
-                   "wp-admin","cpanel","userpanel","client","account"]
+def scanner(url):
+    header = {'User-Agent': getHeader()}
+    request = requests.get(url, headers=header)
+    code = request.status_code
+    return code
 
-        page = self.getPage(address)
-        # Parsing the robot file content for directory
-        for line in page:
-            if DirPattern.findall(line):
-                dirs.append(DirPattern.findall(line)[0])
-
-        # Checking if the directory contains juicy information
-        for key in keyword:
-            for directory in dirs:
-                if key in directory:
-                    interestingInfo.append(directory)
-        return interestingInfo
 
 class wordlist:
-    """ This function loads the wordlsit """
-    def __init__(self):
+    """ This class loads the wordlist """
+
+    def __init__(self, fileName):
         try:
             # read the file and remove \n at the line ending
-            self.load = [i.replace('\n', '') for i in open('wordlist.txt').readlines()]
+            self.load = []
+            for i in open(fileName).readlines():
+                self.load.append(i.strip('\n'))
+
         except IOError:
             print("[!] I/O Error, wordlist.txt not found")
+            exit()
+
+    def generateList(self, address):
+        """
+        Generates a wordlist based on the address
+        :param address: the address to generate based on
+        """
+        wordlist = []
+        for path in self.load:
+            wordlist.append(address + path)
+        return wordlist
 
 
-class scanThread(threading.Thread):
-    """ This class is the blueprint used to generate threads """
-    def __init__(self, q):
-        threading.Thread.__init__(self)
-        self.queue = q
+class worker(multiprocessing.Process):
+    def __init__(self, taskQ):
+        multiprocessing.Process.__init__(self)
+        self.taskQ = taskQ
 
     def run(self):
-        while not self.queue.empty():
-        # While queue is not empty, which means there is work to do
-            stateLock.acquire()
-            url = self.queue.get()
-            stateLock.release()
-            if self.online(url):
-                stateLock.acquire()
-                print("\n\n[+] Admin page found in %.2f seconds" % (time.time() - starttime))
-                print("[=] %s" % url)
-                raw_input("[+] Press Enter to exit")
-                print("[+] Exiting Program")
-                os._exit(1)
+        next_task = self.taskQ.get()
 
-            else:
-                stateLock.acquire()
-                #print("[-] Tried : %s" % url)
-                stateLock.release()
-            self.queue.task_done()
-            # Release task completed status
-
-    def online(self, url):
-        """ Returns True if the url is online AKA HTTP status code == 200 """
-        try:
-            return urllib.urlopen(url).getcode() == 200
-        except IOError:
-            stateLock.acquire()
-            print("[!] Name Resolution Error")
-            stateLock.release()
+        if scanner(next_task) == 200:
+            # means the admin panel is found
+            with stateLock:
+                # grab lock
+                print("[+] Admin Page Found => {}".format(next_task))
+                print("[+] Terminating")
+                while not self.taskQ.empty():
+                    # clear all items in queue
+                    self.taskQ.get_nowait()
 
 
-def main():
-    try:
-        pathlist = wordlist().load
-        # loads the wordlist
-        address = website(raw_input("[+] Website to scan : ")).address
-        mainApp(address, pathlist)
-        # Runs the main Application
-    except KeyboardInterrupt:
-        print("\n[-] Ctrl + C Detected")
-        print("[-] Exiting")
-        os._exit(1)
+class controller:
+    def __init__(self, progSettings):
+        """
+        param
+        :progSettings: a settings class object for various settings
+        """
+        self.settings = progSettings
 
+        if self.settings.mass_scanning == True:
+            _init_mass_scanner()
+        elif self.settings.mass_scanning == False:
+            _init_scanner()
 
-def progressBar(q):
-    symbol = "="
-    emptySymbol = "-"
-    maxJob = q.qsize()
-    maxlinesize = 20
-    while not q.empty():
-        current = q.qsize()
-        currentProgress = 100 - ((current / maxJob) * 100)
-        #print "Current : %s, progress = %s, maxJob = %s" % (current,currentProgress,maxJob)
-        if currentProgress < 95:
-            bar = symbol * int(currentProgress/(100/maxlinesize))
-        elif currentProgress > 95:
-            bar = symbol * maxlinesize
-        remaining = emptySymbol * (maxlinesize - len(bar))
-        line = "\rProgress : [%s%s] %.2f%%" % (bar,remaining,currentProgress)
-        #line = "\rو︻̷┻̿═━一 [%s%s] %.2f%%" % (bar, remaining,currentProgress)
-        threading.Thread(target=printoutput,args=(line,)).start()
-        # sys.stdout.write(line)
-        # sys.stdout.flush()
-        # time.sleep(1)
+    def _init_scanner(self):
 
-def printoutput(data):
-    stateLock.acquire()
-    sys.stdout.write(data)
-    sys.stdout.flush()
-    stateLock.release()
-    time.sleep(0.5)
+        self.address      = urlFormatter(self.settings.target)
+        self.wordlist     = wordlist(self.settings.wordlist).generateList(self.address)
+        self.queue        = multiprocessing.JoinableQueue()
+        self.processCount = self.settings.processCount
+        self.processPool  = []
 
-
-
-class mainApp:
-    def __init__(self,address,plist):
-        self.address = address
-        self.wordlist = plist
         self.createJobs()
-        self.run()
+        self.startWorkers()
+
+        print("[+] Scanning")
+        #show animated urls being scanned!
+
+        # while !self.queue.empty():
+        for workerProc in self.processPool:
+            workerProc.join()
+
+    def _init_mass_scanner(self):
+        pass
 
     def createJobs(self):
-        """
-        Joins website address with the admin paths from wordlist
-        and add it to queue
-        """
-        self.queue = Queue.Queue()
-        stateLock.acquire()
-        for path in self.wordlist:
-            self.queue.put(self.address + path)
-        stateLock.release()
+        """ Creates the job to scan """
+        with stateLock:
+            for path in self.wordlist:
+                self.queue.put(path)
 
-    def run(self):
-        try:
-            print("[!] Press Ctrl + Z to stop while scanning")
-            threadCount = raw_input("[+] Enter number of threads [10]: ")
-            if not threadCount:
-                print("[=] Number of threads = 10")
-                threadCount = 20
-            else:
-                print("[=] Number of threads = %d" % int(threadCount))
+    def startWorkers(self):
+        print("[+] Starting up processes")
+        for i in range(self.processCount):
+            workerProc = worker(self.queue)
+            workerProc.start()
+            self.processPool.append(workerProc)
 
-            threadList = []
-            global starttime
-            starttime = time.time()
 
-            progressbar = threading.Thread(target=progressBar,args=(self.queue,))
-            progressbar.daemon = True
-            progressbar.start()
+class settings:
+    """ Used to aggregate various settings """
+    def __init__(self):
+        """ Various settings can be overwritten here as default settings """
+        self.file          = None           # input file for scanning
+        self.outfile       = None           # output file for results, preferably csv file
+        self.target        = None           # a single target for scanning
+        self.processCount  = cpu_count * 2  # default process count is 2 times the cpu count
+        self.wordlist      = 'wordlist.txt' # default wordlist
 
-            for i in range(0, int(threadCount)):
-                thread = scanThread(self.queue)
-                #thread.daemon = True
-                threadList.append(thread)
-                thread.start()
-            # Waiting for all threads to finish
-            self.queue.join()
-            print("\n\n[=] Time elasped : %.2f seconds" % float(time.time()-starttime))
-            print("[-] Admin page not found!")
-            progressbar.join()
-            for thread in threadList:
-                thread.join()
-        except KeyboardInterrupt:
-            stateLock.acquire()
-            print("\n[~] Ctrl + C Detected!")
-            print("[~] Exiting")
-            os._exit(1)
+        self.mass_scanning = False          # switch for mass scanning
+        self.write_output  = False          # switch for saving results
+
+
+
+def handle_args():
+    """
+    A function to parse the command argument
+    And control the main program
+    """
+    parser = argparse.ArgumentParser(prog="admin-finder.py", description="Admin panel finder")
+
+    parser.add_argument("-t", "--target",       help="Target website")
+    parser.add_argument("-p", "--processcount", help="Number of processes to generate")
+    parser.add_argument("-f", "--file",         help="Input file for mass scanning")
+    parser.add_argument("-o", "--out-file",     help="Output file for storing results")
+    parser.add_argument("-w", "--wordlist",     help="To use custom wordlist")
+    args = parser.parse_args()
+
+    config = settings()
+
+    if args.target == None and args.file == None:
+        parser.print_help()
+        print("[-] -t target paremeter required")
+        exit()
+
+    # if args.processcount != None:
+    #     if not args.processcount.isdigit():
+    #         print("[-] Process count parameter needs to be digit")
+    #     else:
+    #         conf.processCount = args.processcount
+
+    conf.target       = args.target
+    conf.file         = args.file
+    conf.outfile      = args.out_file
+    conf.processcount = args.processcount
+
+    conf.wordlist     = args.wordlist if args.wordlist != None else conf.wordlist
+    conf.write_output = True if args.out_file != None else False
+
+    controller(config)
+
 
 if __name__ == "__main__":
-    main()
+    handle_args()
