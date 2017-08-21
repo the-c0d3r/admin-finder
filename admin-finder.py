@@ -68,28 +68,56 @@ class wordlist:
         """
         wordlist = []
         for path in self.load:
-            wordlist.append(address + path)
+            wordlist.append(address + path if address.endswith("/") else address + "/" + path)
+            # if address.endswith("/"):
+            #     wordlist.append(address + path)
+            # else:
+            #     wordlist.append(address + "/" + path)
         return wordlist
 
 
 class worker(multiprocessing.Process):
-    def __init__(self, taskQ):
+    def __init__(self, taskQ, found_event, quit_event):
         multiprocessing.Process.__init__(self)
         self.taskQ = taskQ
+        self.done = False
+        self.quit_event = quit_event
+        self.found_event = found_event
 
     def run(self):
-        next_task = self.taskQ.get()
+        while not self.quit_event.is_set():
+            next_task = self.taskQ.get()
 
-        if scanner(next_task) == 200:
-            # means the admin panel is found
-            with stateLock:
-                # grab lock
-                print("[+] Admin Page Found => {}".format(next_task))
-                print("[+] Terminating")
-                while not self.taskQ.empty():
-                    # clear all items in queue
-                    self.taskQ.get_nowait()
+            if next_task == None:
+                self.found_event.set()
+                self.term()
+                break
 
+            if scanner(next_task) == 200:
+                # means the admin panel is found
+                with stateLock:
+                    # grab lock
+                    print("\n[+] Admin Page Found => {}".format(next_task))
+                    print("[+] Terminating")
+                    self.found_event.set()
+                    break
+
+
+    def term(self):
+        print("Process terminating")
+
+# class progressReporter(multiprocessing.Process):
+#     def __init__(self, taskQ):
+#         multiprocessing.Process.__init__(self)
+#         self.taskQ = taskQ
+#         self.max_progress = 0
+
+#     def run(self):
+#         current_num = self.taskQ.qsize
+#         percentage = float(100 - (current_num / max_progress) * 100)
+#         with stateLock:
+#             sys.stdout.write("\r[?] Scanning : {}%% done".format(percentage))
+#             sys.stdout.flush()
 
 class controller:
     def __init__(self, progSettings):
@@ -108,19 +136,32 @@ class controller:
 
         self.address      = urlFormatter(self.settings.target)
         self.wordlist     = wordlist(self.settings.wordlist).generateList(self.address)
-        self.queue        = multiprocessing.JoinableQueue()
+        self.queue        = multiprocessing.Queue()
         self.processCount = self.settings.processCount
         self.processPool  = []
 
-        self.createJobs()
-        self.startWorkers()
+        self.found_event  = multiprocessing.Event()
+        self.quit_event   = multiprocessing.Event()
 
-        print("[+] Scanning")
-        #show animated urls being scanned!
+        self.createJobs()
+
+        # reporter = progressReporter(self.queue)
+        # reporter.max_progress = self.queue.size()
+        # reporter.start()
+
+        self.startWorkers()
+        self.found_event.wait()
+        self.quit_event.set()
 
         # while !self.queue.empty():
-        for workerProc in self.processPool:
-            workerProc.join()
+        # try:
+        #     for workerProc in self.processPool:
+        #         workerProc.join()
+
+        # except KeyboardInterrupt:
+        #     print("[-] Ctrl + C detected, terminating processes")
+        #     for workerProc in self.processPool:
+        #         workerProc.terminate()
 
     def _init_mass_scanner(self):
         pass
@@ -134,7 +175,7 @@ class controller:
     def startWorkers(self):
         print("[+] Starting up [{}] processes".format(self.processCount))
         for i in range(self.processCount):
-            workerProc = worker(self.queue)
+            workerProc = worker(self.queue, self.found_event, self.quit_event)
             workerProc.start()
             self.processPool.append(workerProc)
 
@@ -186,16 +227,10 @@ def handle_args():
         print("[-] -t target paremeter required")
         exit()
 
-    # if args.processcount != None:
-    #     if not args.processcount.isdigit():
-    #         print("[-] Process count parameter needs to be digit")
-    #     else:
-    #         conf.processCount = args.processcount
-
     config.target       = args.target
     config.file         = args.file
     config.outfile      = args.out_file
-    config.processCount = int(args.processcount)
+    config.processCount = int(args.processcount) if args.processcount else cpu_count * 2
 
     config.wordlist     = args.wordlist if args.wordlist != None else config.wordlist
     config.write_output = True if args.out_file != None else False
