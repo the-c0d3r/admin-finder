@@ -100,9 +100,9 @@ class controller:
         self.settings = progSettings
 
         if self.settings.mass_scanning == True:
-            _init_mass_scanner()
+            self._init_mass_scanner()
         elif self.settings.mass_scanning == False:
-            _init_scanner()
+            self._init_scanner()
 
     def _init_scanner(self):
 
@@ -132,7 +132,7 @@ class controller:
                 self.queue.put(path)
 
     def startWorkers(self):
-        print("[+] Starting up processes")
+        print("[+] Starting up [{}] processes".format(self.processCount))
         for i in range(self.processCount):
             workerProc = worker(self.queue)
             workerProc.start()
@@ -152,6 +152,17 @@ class settings:
         self.mass_scanning = False          # switch for mass scanning
         self.write_output  = False          # switch for saving results
 
+
+def banner():
+    print( '\033[91m' + """
+    ╔════════════════════════════════════════════╗
+    ║               .          .                 ║
+    ║ ,-. ,-| ,-,-. . ,-.   ," . ,-. ,-| ,-. ,-. ║
+    ║ ,-| | | | | | | | |   |- | | | | | |-' |   ║
+    ║ `-^ `-^ ' ' ' ' ' '   |  ' ' ' `-^ `-' '   ║
+    ║                       '          the-c0d3r ║
+    ╚════════════════════════════════════════════╝
+    """ + '\033[0m')
 
 
 def handle_args():
@@ -181,16 +192,17 @@ def handle_args():
     #     else:
     #         conf.processCount = args.processcount
 
-    conf.target       = args.target
-    conf.file         = args.file
-    conf.outfile      = args.out_file
-    conf.processcount = args.processcount
+    config.target       = args.target
+    config.file         = args.file
+    config.outfile      = args.out_file
+    config.processCount = int(args.processcount)
 
-    conf.wordlist     = args.wordlist if args.wordlist != None else conf.wordlist
-    conf.write_output = True if args.out_file != None else False
+    config.wordlist     = args.wordlist if args.wordlist != None else config.wordlist
+    config.write_output = True if args.out_file != None else False
 
     controller(config)
 
 
 if __name__ == "__main__":
+    banner()
     handle_args()
