@@ -10,6 +10,7 @@ import re
 import requests
 import sys
 import time
+import threading
 import Queue
 
 
@@ -73,23 +74,25 @@ class wordlist:
 
 
 class worker(multiprocessing.Process):
-    def __init__(self, taskQ, found_event, quit_event):
+    def __init__(self, taskQ, finish_event, found_event, quit_event):
         multiprocessing.Process.__init__(self)
         self.taskQ = taskQ
-        self.done = False
-        self.quit_event = quit_event
+        self.finish_event = finish_event
         self.found_event = found_event
+        self.quit_event = quit_event
+
 
     def run(self):
         while not self.quit_event.is_set():
             next_task = self.taskQ.get()
 
             if next_task == None:
-                self.found_event.set()
+                # self.found_event.set()
+                self.finish_event.set()
                 break
 
             with stateLock:
-                sys.stdout.write("\r[=] Trying : {}{}".format(next_task, " " * 50))
+                sys.stdout.write("\r[=] Trying : {}{}".format(next_task, " " * 20))
                 sys.stdout.flush()
 
             if scanner(next_task) == 200:
@@ -103,12 +106,14 @@ class worker(multiprocessing.Process):
 
 
 class controller:
-    def __init__(self, progSettings):
+    def __init__(self, config):
         """
         param
-        :progSettings: a settings class object for various settings
+        :config: a settings class object for various settings
         """
-        self.settings = progSettings
+        self.settings = config
+
+        self.start_time = time.time()
 
         if self.settings.mass_scanning == True:
             self._init_mass_scanner()
@@ -123,16 +128,33 @@ class controller:
         self.processCount = self.settings.processCount
         self.processPool  = []
 
-        self.found_event  = multiprocessing.Event()
-        self.quit_event   = multiprocessing.Event()
+        self.finish_event = multiprocessing.Event() # To show the scanning is completed
+        self.found_event  = multiprocessing.Event() # To show the admin page is found
+        self.quit_event   = multiprocessing.Event() # To show the scanning jobs are done
 
         try:
+            print("[+] Target : {}".format(self.address))
+            print("[+] Wordlist : {} urls".format(len(self.wordlist)))
             self.createJobs()
             self.startWorkers()
-            self.found_event.wait()
+
+            events_waiter(self.found_event, self.finish_event)
+            # to wait for either found the admin panel event or the finish event
+
             self.quit_event.set()
+
+            self.end_time = time.time()
+
+            if not self.found_event.is_set():
+                print("\n[-] Scanner cannot find the admin panel. Try another wordlist!")
+
+            print("[-] Elasped : {} seconds".format(self.end_time - self.start_time))
+
+
         except KeyboardInterrupt:
+            self.end_time = time.time()
             print("\r\n[-] Ctrl + C detected, terminating processes")
+            print("[-] Elasped : {} seconds".format(self.end_time - self.start_time))
             for workerProc in self.processPool:
                 workerProc.terminate()
 
@@ -148,7 +170,7 @@ class controller:
     def startWorkers(self):
         print("[+] Starting up [{}] processes".format(self.processCount))
         for i in range(self.processCount):
-            workerProc = worker(self.queue, self.found_event, self.quit_event)
+            workerProc = worker(self.queue, self.finish_event, self.found_event, self.quit_event)
             workerProc.start()
             self.processPool.append(workerProc)
 
@@ -167,6 +189,21 @@ class settings:
         self.write_output  = False          # switch for saving results
 
 
+def events_waiter(*events):
+    event_share = multiprocessing.Event()
+
+    def set_event_share(event):
+        event.wait()
+        event.clear()
+        event_share.set()
+
+    for event in events:
+        threading.Thread(target=set_event_share(event)).start()
+
+    event_share.wait()
+
+
+
 def banner():
     print( '\033[91m' + """
     ╔════════════════════════════════════════════╗
@@ -177,7 +214,6 @@ def banner():
     ║                       '          the-c0d3r ║
     ╚════════════════════════════════════════════╝
     """ + '\033[0m')
-
 
 def handle_args():
     """
