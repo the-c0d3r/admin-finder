@@ -74,13 +74,13 @@ class wordlist:
 
 
 class worker(multiprocessing.Process):
+    """ A worker process blueprint """
     def __init__(self, taskQ, finish_event, found_event, quit_event):
         multiprocessing.Process.__init__(self)
         self.taskQ = taskQ
         self.finish_event = finish_event
         self.found_event = found_event
         self.quit_event = quit_event
-
 
     def run(self):
         while not self.quit_event.is_set():
@@ -190,6 +190,7 @@ class settings:
 
 
 def events_waiter(*events):
+    """ An event waiter for waiting 2 or more events """
     event_share = multiprocessing.Event()
 
     def set_event_share(event):
@@ -205,7 +206,7 @@ def events_waiter(*events):
 
 
 def banner():
-    print( '\033[91m' + """
+    print('\033[91m' + """
     ╔════════════════════════════════════════════╗
     ║               .          .                 ║
     ║ ,-. ,-| ,-,-. . ,-.   ," . ,-. ,-| ,-. ,-. ║
