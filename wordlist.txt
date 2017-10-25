@@ -815,3 +815,6 @@ moderator/admin.html
 account.html
 controlpanel.html
 admincontrol.html
+admin_panel/
+admin_panel.html
+adm_cp/
