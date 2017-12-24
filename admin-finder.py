@@ -19,6 +19,29 @@ stateLock = multiprocessing.Lock()
 cpu_count = multiprocessing.cpu_count()
 
 
+spinPatterns = [
+    '←↖↑↗→↘↓↙',
+    '▁▃▄▅▆▇█▇▆▅▄▃',
+    '▉▊▋▌▍▎▏▎▍▌▋▊▉',
+    '▖▘▝▗',
+    '▌▀▐▄',
+    '┤┘┴└├┌┬┐',
+    '◢◣◤◥',
+    '◰◳◲◱',
+    '◴◷◶◵',
+    '◐◓◑◒',
+    '|/-\\',
+    '.oO@*',
+    '◇◈◆',
+    '⣾⣽⣻⢿⡿⣟⣯⣷',
+    '⡀⡁⡂⡃⡄⡅⡆⡇⡈⡉⡊⡋⡌⡍⡎⡏⡐⡑⡒⡓⡔⡕⡖⡗⡘⡙⡚⡛⡜⡝⡞⡟⡠⡡⡢⡣⡤⡥⡦⡧⡨⡩⡪⡫⡬⡭⡮⡯⡰⡱⡲⡳⡴⡵⡶⡷⡸⡹⡺⡻⡼⡽⡾⡿⢀⢁⢂⢃⢄⢅⢆⢇⢈⢉⢊⢋⢌⢍⢎⢏⢐⢑⢒⢓⢔⢕⢖⢗⢘⢙⢚⢛⢜⢝⢞⢟⢠⢡⢢⢣⢤⢥⢦⢧⢨⢩⢪⢫⢬⢭⢮⢯⢰⢱⢲⢳⢴⢵⢶⢷⢸⢹⢺⢻⢼⢽⢾⢿⣀⣁⣂⣃⣄⣅⣆⣇⣈⣉⣊⣋⣌⣍⣎⣏⣐⣑⣒⣓⣔⣕⣖⣗⣘⣙⣚⣛⣜⣝⣞⣟⣠⣡⣢⣣⣤⣥⣦⣧⣨⣩⣪⣫⣬⣭⣮⣯⣰⣱⣲⣳⣴⣵⣶⣷⣸⣹⣺⣻⣼⣽⣾⣿',
+    "⠁⠂⠄⡀⢀⠠⠐⠈"
+]
+
+colorSpinner = '[\x1b[1m\x1b[96m{}\x1b[0m]'
+pattern = random.choice(spinPatterns)
+
+
 def urlFormatter(url):
     """ return properly formatted URLs """
     formatted_url = "http://" + url if not url.startswith("http") else url
@@ -81,6 +104,8 @@ class worker(multiprocessing.Process):
         self.finish_event = finish_event
         self.found_event = found_event
         self.quit_event = quit_event
+        self.patternIndex = 0
+        self.pattern = random.choice(spinPatterns)
 
     def run(self):
         while not self.quit_event.is_set():
@@ -92,8 +117,10 @@ class worker(multiprocessing.Process):
                 break
 
             with stateLock:
-                sys.stdout.write("\r[=] Trying : {}{}".format(next_task, " " * 20))
+                sys.stdout.write("\r{} Trying : {}".format(self.getSpinner(), next_task))
                 sys.stdout.flush()
+                # sys.stdout.write("\r[=] Trying : {}{}".format(next_task, " " * 20))
+                # sys.stdout.flush()
 
             if scanner(next_task) == 200:
                 # means the admin panel is found
@@ -102,7 +129,14 @@ class worker(multiprocessing.Process):
                     print("\n[+] Admin Page Found => {}".format(next_task))
                     print("[+] Terminating")
                     self.found_event.set()
+                    #  self.quit_event.set()
                     break
+    def getSpinner(self):
+        if self.patternIndex == len(self.pattern):
+            self.patternIndex = 0
+        msg = colorSpinner.format(self.pattern[self.patternIndex])
+        self.patternIndex += 1
+        return msg
 
 
 class controller:
@@ -138,7 +172,8 @@ class controller:
             self.createJobs()
             self.startWorkers()
 
-            events_waiter(self.found_event, self.finish_event)
+            self.found_event.wait()
+            # events_waiter(self.found_event, self.finish_event)
             # to wait for either found the admin panel event or the finish event
 
             self.quit_event.set()
@@ -148,13 +183,13 @@ class controller:
             if not self.found_event.is_set():
                 print("\n[-] Scanner cannot find the admin panel. Try another wordlist!")
 
-            print("[-] Elasped : {} seconds".format(self.end_time - self.start_time))
+            print("[-] Elasped : {:.2f} seconds".format(self.end_time - self.start_time))
 
 
         except KeyboardInterrupt:
             self.end_time = time.time()
             print("\r\n[-] Ctrl + C detected, terminating processes")
-            print("[-] Elasped : {} seconds".format(self.end_time - self.start_time))
+            print("[-] Elasped : {:.2f} seconds".format(self.end_time - self.start_time))
             for workerProc in self.processPool:
                 workerProc.terminate()
 
@@ -169,7 +204,7 @@ class controller:
 
     def startWorkers(self):
         print("[+] Starting up [{}] processes".format(self.processCount))
-        for i in range(self.processCount):
+        for _ in range(self.processCount):
             workerProc = worker(self.queue, self.finish_event, self.found_event, self.quit_event)
             workerProc.start()
             self.processPool.append(workerProc)
