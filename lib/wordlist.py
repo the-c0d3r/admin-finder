@@ -9,11 +9,7 @@ class URLGenerator(object):
         self.max = len(self.wordlist)
 
     def __iter__(self):
-        """Makes a iterator object out of this class"""
-        return self
-
-    def __next__(self):
-        """Returns the next url in the list"""
+        """Creates iterable on the urls to be generated"""
         url = ""
         if self.index >= self.max:
             # TODO Check the index
@@ -26,3 +22,4 @@ class URLGenerator(object):
                 url = self.url + word
             self.index += 1
             return url
+
