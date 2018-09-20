@@ -1,6 +1,7 @@
 import random
 import re
 import requests
+import logging
 
 
 class HTTP(object):
@@ -8,6 +9,7 @@ class HTTP(object):
     def __init__(self):
         """initialize the http connection object"""
         self.agents = [line.strip("\n") for line in open("lib/agents.ini").readlines()]
+        self.logger = logging.getLogger("admin-finder")
 
     def get_headers(self):
         """ Returns randomly chosen UserAgent """
@@ -33,14 +35,14 @@ class URLFormatter(object):
     """A url class to handle all the URL related operation"""
     def __init__(self, url):
         """initialize URL object"""
-        pass
+        self.url = url
 
     def geturl(self):
         """Get the formatted url"""
-        if url.startswith("http://"):
-            self.fullurl = url
+        if self.url.startswith("http://"):
+            self.fullurl = self.url
         else:
-            self.fullurl = "http://" + url
+            self.fullurl = "http://" + self.url
         if not self.fullurl.endswith("/"):
             self.fullurl += "/"
         return self.fullurl
@@ -49,34 +51,43 @@ class URLFormatter(object):
 class URLHandler(HTTP):
     """General URL handler"""
     def __init__(self):
-        super()
+        super().__init__()
 
+    def scan(self, url):
+        return self.connect(url)["code"]
 
 
 class RobotHandler(HTTP):
-    def __init__(self):
-        super()
+    def __init__(self, url):
+        super().__init__()
         self.robotFiles = ["robot.txt", "robots.txt"]
         self.keywords = [
             "admin", "Administrator", "login", "user", "controlpanel",
             "wp-admin", "cpanel", "userpanel", "client", "account"
         ]
         self.dir_pattern = re.compile(r".+: (.+)\n")
+        self.url = url
 
-    def scan(self, url):
+    def scan(self):
         """
-        Scan the url for robot file
-        Args:
-            url: the target url
+        Scan the url for robot file and return the matched keywords
         RetVal:
             list: list of matched keywords or []
         """
+        pages = []
         matched = []
-        urls = list(map(lambda fname: url + "/" + fname, self.robotFiles))
+        urls = list(map(lambda fname: self.url + fname, self.robotFiles))
+        # generate URL list with robot file names
         for link in urls:
             result = self.connect(link)
             if result["code"] == 200:
-                matched.append(self.analyze(result["response"]))
+                self.logger.info("Detected robot file at %s", link)
+                pages.append(self.analyze(result["response"]))
+
+        for page in pages:
+            result = self.analyze(page)
+            if result:
+                matched.append(i for i in result)
 
         return matched
 
