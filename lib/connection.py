@@ -4,20 +4,20 @@ import requests
 import logging
 
 
-class HTTP(object):
+class HTTP:
     """Handles the http connection"""
-    def __init__(self):
+    def __init__(self) -> None:
         """initialize the http connection object"""
         self.agents = [line.strip("\n") for line in open("lib/agents.ini").readlines()]
         self.logger = logging.getLogger("admin-finder")
 
-    def get_headers(self):
+    def get_headers(self) -> dict:
         """ Returns randomly chosen UserAgent """
         return {
             "User-Agent": random.choice(self.agents)
         }
 
-    def connect(self, url):
+    def connect(self, url: str) -> dict:
         """
         connect to the url and return the response
         Args:
@@ -31,13 +31,13 @@ class HTTP(object):
             "response" : request.text
         }
 
-class URLFormatter(object):
+class URLFormatter:
     """A url class to handle all the URL related operation"""
-    def __init__(self, url):
+    def __init__(self, url: str) -> None:
         """initialize URL object"""
         self.url = url
 
-    def geturl(self):
+    def geturl(self) -> str:
         """Get the formatted url"""
         if self.url.startswith("http://"):
             self.fullurl = self.url
@@ -50,25 +50,28 @@ class URLFormatter(object):
 
 class URLHandler(HTTP):
     """General URL handler"""
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
 
-    def scan(self, url):
+    def scan(self, url: str) -> int:
+        """Scans the website by connecting, and return status code"""
         return self.connect(url)["code"]
 
 
 class RobotHandler(HTTP):
-    def __init__(self, url):
+    """Class for handling/analyzing robots.txt"""
+    def __init__(self, url: str) -> None:
         super().__init__()
         self.robotFiles = ["robot.txt", "robots.txt"]
         self.keywords = [
             "admin", "Administrator", "login", "user", "controlpanel",
             "wp-admin", "cpanel", "userpanel", "client", "account"
         ]
+        # you can add more keywords above to detect custom keywords
         self.dir_pattern = re.compile(r".+: (.+)\n")
         self.url = url
 
-    def scan(self):
+    def scan(self) -> list:
         """
         Scan the url for robot file and return the matched keywords
         RetVal:
@@ -91,7 +94,7 @@ class RobotHandler(HTTP):
 
         return matched
 
-    def analyze(self, data):
+    def analyze(self, data: list) -> list:
         """
         Analyze the content for interesting keywords
         Args:
