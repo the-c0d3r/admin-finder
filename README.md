@@ -25,8 +25,8 @@
 
 
 Multi-threaded admin finder written in python
-**Disclaimer: For Educational Purpose only. Use at your own risk, it is very easy to detect such attempts**
 
+**Disclaimer: For Educational Purpose only. Use at your own risk, it is very easy to detect such attempts**
 
 Features
 ---
