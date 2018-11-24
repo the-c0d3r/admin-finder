@@ -41,8 +41,17 @@ def main():
 
     args.url = URLFormatter(args.url).geturl()
     robot_handler = RobotHandler(args.url)
-    print(robot_handler.scan())
+    result = robot_handler.scan()
 
+    if result:
+        logger.info("Detected keywords in robot file")
+        print("-" * 30)
+        print("\n".join(result))
+        print("-" * 30)
+        print("Would you like to continue scanning?")
+        choice = input("[y]/n: ")
+        if choice == "n":
+            exit()
 
     try:
         workQueue = queue.Queue()
