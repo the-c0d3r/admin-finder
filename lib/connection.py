@@ -31,6 +31,7 @@ class HTTP:
             "response" : request.text
         }
 
+
 class URLFormatter:
     """A url class to handle all the URL related operation"""
     def __init__(self, url: str) -> None:
@@ -63,12 +64,9 @@ class RobotHandler(HTTP):
     def __init__(self, url: str) -> None:
         super().__init__()
         self.robotFiles = ["robot.txt", "robots.txt"]
-        self.keywords = [
-            "admin", "Administrator", "login", "user", "controlpanel",
-            "wp-admin", "cpanel", "userpanel", "client", "account"
-        ]
+        self.keywords = [line.strip('\n') for line in open('robot.txt').readlines()]
         # you can add more keywords above to detect custom keywords
-        self.dir_pattern = re.compile(r".+: (.+)\n")
+        self.dir_pattern = re.compile(r".+: (.+)")
         self.url = url
 
     def scan(self) -> list:
@@ -81,17 +79,17 @@ class RobotHandler(HTTP):
         matched = []
         urls = list(map(lambda fname: self.url + fname, self.robotFiles))
         # generate URL list with robot file names
+
         for link in urls:
             result = self.connect(link)
             if result["code"] == 200:
                 self.logger.info("Detected robot file at %s", link)
-                pages.append(self.analyze(result["response"]))
+                pages.append(result["response"].split('\n'))
 
         for page in pages:
             result = self.analyze(page)
-            if result:
-                matched.append(i for i in result)
-
+            for i in result:
+                matched.append(i)
         return matched
 
     def analyze(self, data: list) -> list:
@@ -115,8 +113,5 @@ class RobotHandler(HTTP):
             for directory in dirs:
                 if keyword in directory.lower():
                     matched.append(directory)
-
         return matched
-
-
 
