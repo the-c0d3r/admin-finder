@@ -40,7 +40,7 @@ class URLFormatter:
 
     def geturl(self) -> str:
         """Get the formatted url"""
-        if self.url.startswith("http://"):
+        if self.url.startswith("http://") or self.url.startswith("https://"):
             self.fullurl = self.url
         else:
             self.fullurl = "http://" + self.url
