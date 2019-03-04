@@ -27,12 +27,13 @@ def main():
 
     if args.url is None:
         parser.print_help()
-        print("[-] -t target paremeter required")
+        print("[-] -u target paremeter required")
         exit()
 
     if args.threadcount is not None:
         if not args.threadcount.isdigit():
             print("[-] Process count parameter needs to be digit")
+            exit()
     else:
         args.threadcount = 20
 
@@ -56,7 +57,7 @@ def main():
     try:
         workQueue = queue.Queue()
         workerPool = []
-        for _ in range(args.threadcount):
+        for _ in range(int(args.threadcount)):
             thread = WorkerThread(workQueue)
             thread.daemon = True
             thread.start()
@@ -67,7 +68,7 @@ def main():
 
         logger.info("Scanner started")
 
-        while True:
+        while not workQueue.empty():
             pass
         # to lock the main thread from exiting
     except KeyboardInterrupt:
