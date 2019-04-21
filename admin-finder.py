@@ -19,9 +19,10 @@ def main():
 
     logger = setupLogger()
     parser = argparse.ArgumentParser(prog="admin-finder.py", description="Admin panel finder")
-    parser.add_argument("-u", "--url", help="target url/website")
-    parser.add_argument("-w", "--wordlist", help="wordlist to use, default 'wordlist.txt'")
+    parser.add_argument("-u", "--url", help="Target url/website")
+    parser.add_argument("-w", "--wordlist", help="Wordlist to use, default 'wordlist.txt'")
     parser.add_argument("-t", "--threadcount", help="Number of threads to use")
+    parser.add_argument("-b", "--baseauth", nargs='+',  help="Basic http auth conditionals")
 
     args = parser.parse_args()
 
@@ -39,9 +40,8 @@ def main():
 
     if args.wordlist is None:
         args.wordlist = "wordlist.txt"
-
     args.url = URLFormatter(args.url).geturl()
-    robot_handler = RobotHandler(args.url)
+    robot_handler = RobotHandler(args.url, args.baseauth)
     result = robot_handler.scan()
 
     if result:
@@ -58,7 +58,7 @@ def main():
         workQueue = queue.Queue()
         workerPool = []
         for _ in range(int(args.threadcount)):
-            thread = WorkerThread(workQueue)
+            thread = WorkerThread(workQueue, args.baseauth)
             thread.daemon = True
             thread.start()
             workerPool.append(thread)
