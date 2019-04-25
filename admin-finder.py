@@ -22,7 +22,7 @@ def main():
     parser.add_argument("-u", "--url", help="Target url/website")
     parser.add_argument("-w", "--wordlist", help="Wordlist to use, default 'wordlist.txt'")
     parser.add_argument("-t", "--threadcount", help="Number of threads to use")
-    parser.add_argument("-b", "--baseauth", nargs='+',  help="Basic http auth conditionals")
+    parser.add_argument("-c", "--credentials", help="Basic http authentication credentials user:pass format")
 
     args = parser.parse_args()
 
