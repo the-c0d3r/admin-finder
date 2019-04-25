@@ -59,7 +59,7 @@ class URLHandler(HTTP):
     def __init__(self) -> None:
         super().__init__()
 
-    def scan(self, url: str, creds) -> int:
+    def scan(self, url: str, creds: [str, str]) -> int:
         """Scans the website by connecting, and return status code"""
         if creds is not None:
             return self.connect(url, creds)["code"]
