@@ -68,7 +68,7 @@ class URLHandler(HTTP):
 
 class RobotHandler(HTTP):
     """Class for handling/analyzing robots.txt"""
-    def __init__(self, url: str, creds) -> None:
+    def __init__(self, url: str, creds: [str, str]) -> None:
 
         """
                 connect to the url and return the response
