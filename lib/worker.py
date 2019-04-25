@@ -7,7 +7,7 @@ from lib.connection import URLHandler
 
 class WorkerThread(threading.Thread):
     """The threads that will be processing all the wordlist items"""
-    def __init__(self, queue: queue.Queue, creds) -> None:
+    def __init__(self, queue: queue.Queue, creds: [str, str]) -> None:
         super().__init__()
         self.queue = queue
         self.urlHandler = URLHandler()
