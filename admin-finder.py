@@ -41,7 +41,7 @@ def main():
     if args.wordlist is None:
         args.wordlist = "wordlist.txt"
     args.url = URLFormatter(args.url).geturl()
-    robot_handler = RobotHandler(args.url, args.baseauth)
+    robot_handler = RobotHandler(args.url, args.credentials)
     result = robot_handler.scan()
 
     if result:
