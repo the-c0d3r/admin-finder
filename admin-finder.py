@@ -58,7 +58,7 @@ def main():
         workQueue = queue.Queue()
         workerPool = []
         for _ in range(int(args.threadcount)):
-            thread = WorkerThread(workQueue, args.baseauth)
+            thread = WorkerThread(workQueue, args.credentials)
             thread.daemon = True
             thread.start()
             workerPool.append(thread)
