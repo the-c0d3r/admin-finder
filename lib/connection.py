@@ -18,7 +18,7 @@ class HTTP:
             "User-Agent": random.choice(self.agents)
         }
 
-    def connect(self, url: str, creds) -> dict:
+    def connect(self, url: str, creds: [str, str]) -> dict:
         """
         connect to the url and return the response
         Args:
