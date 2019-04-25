@@ -69,13 +69,13 @@ class URLHandler(HTTP):
 class RobotHandler(HTTP):
     """Class for handling/analyzing robots.txt"""
     def __init__(self, url: str, creds: [str, str]) -> None:
-        """
-                connect to the url and return the response
-                Args:
-                    creds: basic auth credentials
-                RetVal:
-                    dict: the string response or empty string
-        """
+    """
+       connect to the url and return the response
+       Args:
+            creds: basic auth credentials
+       RetVal:
+            dict: the string response or empty string
+    """
         super().__init__()
         self.robotFiles = ["robot.txt", "robots.txt"]
         self.keywords = [line.strip('\n') for line in open('robot.txt').readlines()]
