@@ -41,6 +41,12 @@ def main():
     if args.wordlist is None:
         args.wordlist = "wordlist.txt"
     args.url = URLFormatter(args.url).geturl()
+    
+    if args.credentials:
+        if ":" not in args.credentials:
+            print("[!] Error: credential need to be in this format user:pass")
+            exit()
+        args.credentials = args.credentials.split(":")
     robot_handler = RobotHandler(args.url, args.credentials)
     result = robot_handler.scan()
 
