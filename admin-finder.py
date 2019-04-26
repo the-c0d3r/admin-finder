@@ -19,9 +19,10 @@ def main():
 
     logger = setupLogger()
     parser = argparse.ArgumentParser(prog="admin-finder.py", description="Admin panel finder")
-    parser.add_argument("-u", "--url", help="target url/website")
-    parser.add_argument("-w", "--wordlist", help="wordlist to use, default 'wordlist.txt'")
+    parser.add_argument("-u", "--url", help="Target url/website")
+    parser.add_argument("-w", "--wordlist", help="Wordlist to use, default 'wordlist.txt'")
     parser.add_argument("-t", "--threadcount", help="Number of threads to use")
+    parser.add_argument("-c", "--credentials", help="Basic http authentication credentials user:pass format")
 
     args = parser.parse_args()
 
@@ -39,9 +40,14 @@ def main():
 
     if args.wordlist is None:
         args.wordlist = "wordlist.txt"
-
     args.url = URLFormatter(args.url).geturl()
-    robot_handler = RobotHandler(args.url)
+    
+    if args.credentials:
+        if ":" not in args.credentials:
+            print("[!] Error: credential need to be in this format user:pass")
+            exit()
+        args.credentials = args.credentials.split(":")
+    robot_handler = RobotHandler(args.url, args.credentials)
     result = robot_handler.scan()
 
     if result:
@@ -58,7 +64,7 @@ def main():
         workQueue = queue.Queue()
         workerPool = []
         for _ in range(int(args.threadcount)):
-            thread = WorkerThread(workQueue)
+            thread = WorkerThread(workQueue, args.credentials)
             thread.daemon = True
             thread.start()
             workerPool.append(thread)

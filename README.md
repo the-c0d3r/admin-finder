@@ -32,6 +32,7 @@ Features
 ---
 - Check the robots.txt file, see if there is any useful information in it
 - Locates admin webpage using over 800 lines of dictionary list
+- Http basic auth
 
 Config
 ---

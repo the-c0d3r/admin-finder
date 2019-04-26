@@ -2,6 +2,7 @@ import random
 import re
 import requests
 import logging
+from requests.auth import HTTPBasicAuth
 
 
 class HTTP:
@@ -17,15 +18,19 @@ class HTTP:
             "User-Agent": random.choice(self.agents)
         }
 
-    def connect(self, url: str) -> dict:
+    def connect(self, url: str, creds: [str, str]) -> dict:
         """
         connect to the url and return the response
         Args:
             url: the url to open
+            creds: basic auth credentials
         RetVal:
             dict: the string response or empty string
         """
-        request = requests.get(url, headers=self.get_headers())
+        if creds is not None:
+            request = requests.get(url, headers=self.get_headers(), auth=HTTPBasicAuth(creds[0], creds[1]))
+        else:
+            request = requests.get(url, headers=self.get_headers())
         return {
             "code" : request.status_code,
             "response" : request.text
@@ -54,20 +59,30 @@ class URLHandler(HTTP):
     def __init__(self) -> None:
         super().__init__()
 
-    def scan(self, url: str) -> int:
+    def scan(self, url: str, creds: [str, str]) -> int:
         """Scans the website by connecting, and return status code"""
-        return self.connect(url)["code"]
-
+        if creds is not None:
+            return self.connect(url, creds)["code"]
+        else:
+            return self.connect(url, None)["code"]
 
 class RobotHandler(HTTP):
     """Class for handling/analyzing robots.txt"""
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str, creds: [str, str]) -> None:
+        """
+        connect to the url and return the response
+        Args:
+            creds: basic auth credentials
+        RetVal:
+            dict: the string response or empty string
+        """
         super().__init__()
         self.robotFiles = ["robot.txt", "robots.txt"]
         self.keywords = [line.strip('\n') for line in open('robot.txt').readlines()]
         # you can add more keywords above to detect custom keywords
         self.dir_pattern = re.compile(r".+: (.+)")
         self.url = url
+        self.creds = creds
 
     def scan(self) -> list:
         """
@@ -81,7 +96,7 @@ class RobotHandler(HTTP):
         # generate URL list with robot file names
 
         for link in urls:
-            result = self.connect(link)
+            result = self.connect(link, self.creds)
             if result["code"] == 200:
                 self.logger.info("Detected robot file at %s", link)
                 pages.append(result["response"].split('\n'))
