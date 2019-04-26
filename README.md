@@ -24,7 +24,7 @@
                             Number of threads to use
       -c CREDENTIALS, --credentials CREDENTIALS
                             Basic http authentication credentials user:pass format
-    [-] -t target paremeter required
+    [-] -u URL paremeter required
 
 
 Multi-threaded admin finder written in python
