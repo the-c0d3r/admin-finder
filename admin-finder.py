@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
 import argparse
 import queue
@@ -9,6 +9,8 @@ from lib.wordlist import WordListGenerator
 from lib.worker import WorkerThread
 from lib.connection import URLFormatter
 from lib.connection import RobotHandler
+
+WORDLIST_FILE="wordlists/wordlist.txt"
 
 
 def main():
@@ -39,7 +41,7 @@ def main():
         args.threadcount = 20
 
     if args.wordlist is None:
-        args.wordlist = "wordlist.txt"
+        args.wordlist = WORDLIST_FILE
     args.url = URLFormatter(args.url).geturl()
 
     if args.credentials:

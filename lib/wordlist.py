@@ -1,9 +1,10 @@
 import logging
 
 
-class WordListGenerator(object):
+
+class WordListGenerator:
     """Generator that generates the url list"""
-    def __init__(self, url, filename="wordlist.txt"):
+    def __init__(self, url, filename):
         self.url = url
         self.wordlist = [line.strip('\n') for line in open(filename).readlines()]
         self.index = 0
@@ -16,6 +17,7 @@ class WordListGenerator(object):
                 return [line.strip('\n') for line in filehandle.readlines()]
         except IOError:
             self.logger.error("Wordlist file not found")
+            exit(1)
 
     def __iter__(self):
         self.index = 0

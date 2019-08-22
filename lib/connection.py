@@ -4,12 +4,15 @@ import requests
 import logging
 from requests.auth import HTTPBasicAuth
 
+AGENT_FILE="config/agents.ini"
+ROBOT_FILE="wordlists/robot.txt"
+
 
 class HTTP:
     """Handles the http connection"""
     def __init__(self) -> None:
         """initialize the http connection object"""
-        self.agents = [line.strip("\n") for line in open("lib/agents.ini").readlines()]
+        self.agents = [line.strip("\n") for line in open(AGENT_FILE).readlines()]
         self.logger = logging.getLogger("admin-finder")
 
     def get_headers(self) -> dict:
@@ -27,14 +30,18 @@ class HTTP:
         RetVal:
             dict: the string response or empty string
         """
-        if creds is not None:
-            request = requests.get(url, headers=self.get_headers(), auth=HTTPBasicAuth(creds[0], creds[1]))
-        else:
-            request = requests.get(url, headers=self.get_headers())
-        return {
-            "code" : request.status_code,
-            "response" : request.text
-        }
+        try:
+            if creds is not None:
+                request = requests.get(url, headers=self.get_headers(), auth=HTTPBasicAuth(creds[0], creds[1]))
+            else:
+                request = requests.get(url, headers=self.get_headers())
+            return {
+                "code" : request.status_code,
+                "response" : request.text
+            }
+        except requests.exceptions.ConnectionError as error:
+            print("Connection error: ", error.args)
+            return {"code": -1}
 
 
 class URLFormatter:
@@ -59,12 +66,10 @@ class URLHandler(HTTP):
     def __init__(self) -> None:
         super().__init__()
 
-    def scan(self, url: str, creds: [str, str]) -> int:
+    def scan(self, url: str) -> int:
         """Scans the website by connecting, and return status code"""
-        if creds is not None:
-            return self.connect(url, creds)["code"]
-        else:
-            return self.connect(url, None)["code"]
+        return self.connect(url, None)["code"]
+
 
 class RobotHandler(HTTP):
     """Class for handling/analyzing robots.txt"""
@@ -78,7 +83,7 @@ class RobotHandler(HTTP):
         """
         super().__init__()
         self.robotFiles = ["robot.txt", "robots.txt"]
-        self.keywords = [line.strip('\n') for line in open('robot.txt').readlines()]
+        self.keywords = [line.strip('\n') for line in open(ROBOT_FILE).readlines()]
         # you can add more keywords above to detect custom keywords
         self.dir_pattern = re.compile(r".+: (.+)")
         self.url = url
