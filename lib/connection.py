@@ -14,6 +14,7 @@ class HTTP:
         """initialize the http connection object"""
         self.agents = [line.strip("\n") for line in open(AGENT_FILE).readlines()]
         self.session = requests.Session()
+        self.session.headers = self.get_headers()
         self.logger = logging.getLogger("admin-finder")
 
     def get_headers(self) -> dict:
@@ -22,23 +23,19 @@ class HTTP:
             "User-Agent": random.choice(self.agents)
         }
 
-    def connect(self, url: str) -> dict:
+    def connect(self, url: str) -> int:
         """
         connect to the url and return the response
         Args:
             url: the url to open
         RetVal:
-            dict: the string response or empty string
+            int: the status code
         """
         try:
-            request = self.session.get(url, headers=self.get_headers())
-            return {
-                "code" : request.status_code,
-                "response" : request.text
-            }
+            return self.session.get(url).status_code
         except requests.exceptions.ConnectionError as error:
             print("Connection error: ", error.args)
-            return {"code": -1}
+            return -1
 
 
 class URLFormatter:
@@ -65,7 +62,7 @@ class URLHandler(HTTP):
 
     def scan(self, url: str) -> int:
         """Scans the website by connecting, and return status code"""
-        return self.connect(url)["code"]
+        return self.connect(url)
 
 
 class RobotHandler(HTTP):
