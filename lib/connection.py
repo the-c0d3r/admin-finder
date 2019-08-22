@@ -13,6 +13,7 @@ class HTTP:
     def __init__(self) -> None:
         """initialize the http connection object"""
         self.agents = [line.strip("\n") for line in open(AGENT_FILE).readlines()]
+        self.session = requests.Session()
         self.logger = logging.getLogger("admin-finder")
 
     def get_headers(self) -> dict:
@@ -21,20 +22,16 @@ class HTTP:
             "User-Agent": random.choice(self.agents)
         }
 
-    def connect(self, url: str, creds: [str, str]) -> dict:
+    def connect(self, url: str) -> dict:
         """
         connect to the url and return the response
         Args:
             url: the url to open
-            creds: basic auth credentials
         RetVal:
             dict: the string response or empty string
         """
         try:
-            if creds is not None:
-                request = requests.get(url, headers=self.get_headers(), auth=HTTPBasicAuth(creds[0], creds[1]))
-            else:
-                request = requests.get(url, headers=self.get_headers())
+            request = self.session.get(url, headers=self.get_headers())
             return {
                 "code" : request.status_code,
                 "response" : request.text
@@ -68,7 +65,7 @@ class URLHandler(HTTP):
 
     def scan(self, url: str) -> int:
         """Scans the website by connecting, and return status code"""
-        return self.connect(url, None)["code"]
+        return self.connect(url)["code"]
 
 
 class RobotHandler(HTTP):

@@ -50,5 +50,7 @@ Contributors
 TODO
 ---
 
-Convert the admin finder into a general purpose bruteforcing tool.
+- [ ] Convert the admin finder into a general purpose bruteforcing tool.
+- [ ] Add a better checking mechanism, based on keywords
+- [ ] scanner needs to emulate browser, some sites will block based on certain header
 
