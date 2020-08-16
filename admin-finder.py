@@ -10,8 +10,8 @@ from typing import Optional
 
 
 from lib.wordlist import WordListGenerator
+from lib.robot import RobotHandler
 
-logging.getLogger().setLevel(logging.INFO)
 
 AGENT_FILE = "config/agents.ini"
 
@@ -80,6 +80,20 @@ def main() -> None:
         parser.print_help()
         print("[-] -u URL paremeter required")
         exit()
+
+    # scan for robot file
+    robot_handler = RobotHandler(args.url)
+    result = robot_handler.scan()
+
+    if result:
+        print("[+] Detected keywords in robot file")
+        print("-" * 30)
+        print("\n".join(result))
+        print("-" * 30)
+        print("Would you like to continue scanning?")
+        choice = input("[y]/n: ")
+        if choice == "n":
+            exit()
 
     try:
         semaphore = asyncio.Semaphore(args.threadcount)
