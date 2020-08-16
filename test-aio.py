@@ -1,5 +1,6 @@
-import asyncio
 import aiohttp
+import argparse
+import asyncio
 import logging
 import random
 import sys
@@ -7,7 +8,6 @@ import time
 
 from typing import Optional
 
-from aiohttp import ClientSession, ClientResponseError
 
 from lib.wordlist import WordListGenerator
 
@@ -20,8 +20,9 @@ async def fetch(session: aiohttp.ClientSession, url: str, semaphore: asyncio.Sem
     """Fetch the url with the semaphore and return the response"""
     try:
         async with session.get(url, timeout=15) as response:
-            return response
-    except ClientResponseError as e:
+            if response.status != 404:
+                return response
+    except aiohttp.ClientResponseError as e:
         logging.warning(e.code)
     except asyncio.TimeoutError:
         logging.warning("Timeout")
@@ -34,7 +35,7 @@ async def fetch_async(urls: [str], semaphore: asyncio.Semaphore) -> [Optional[st
     tasks = []
     header = {"User-Agent": random.choice(load_agents())}
 
-    async with ClientSession(headers=header) as session:
+    async with aiohttp.ClientSession(headers=header) as session:
         for url in urls:
             task = asyncio.ensure_future(fetch(session, url, semaphore))
             tasks.append(task)
@@ -50,11 +51,39 @@ def load_agents() -> [str]:
     return agents
 
 
-def main(url: str, wordlist: str, concurrent: int = 1000) -> None:
-    try:
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="admin-finder.py", description="Admin panel finder")
+    parser.add_argument("-u", "--url", help="Target url/website")
+    parser.add_argument("-w", "--wordlist", help="Wordlist to use, default 'wordlist.txt'", default = "wordlists/wordlist.txt")
+    parser.add_argument("-t", "--threadcount", help="Number of threads to use", default = 1000)
+    return parser
 
-        semaphore = asyncio.Semaphore(concurrent)
-        urls = WordListGenerator(url, wordlist)
+
+def banner():
+    print('\033[91m' + """
+    ╔════════════════════════════════════════════╗
+    ║               .          .                 ║
+    ║ ,-. ,-| ,-,-. . ,-.   ," . ,-. ,-| ,-. ,-. ║
+    ║ ,-| | | | | | | | |   |- | | | | | |-' |   ║
+    ║ `-^ `-^ ' ' ' ' ' '   |  ' ' ' `-^ `-' '   ║
+    ║                       '          the-c0d3r ║
+    ╚════════════════════════════════════════════╝
+    """ + '\033[0m')
+
+
+def main() -> None:
+    banner()
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.url is None:
+        parser.print_help()
+        print("[-] -u URL paremeter required")
+        exit()
+
+    try:
+        semaphore = asyncio.Semaphore(args.threadcount)
+        urls = WordListGenerator(args.url, args.wordlist)
 
         start = time.time()
         loop = asyncio.get_event_loop()
@@ -67,13 +96,7 @@ def main(url: str, wordlist: str, concurrent: int = 1000) -> None:
         print("[+] Elapsed: ", elapsed)
         print("[+] Processed: ", urls.max)
 
-        found = []
-
-        for result in results:
-            if not result:
-                continue
-            if result.status != 404:
-                found.append(result)
+        found = [result for result in results if result is not None]
 
         if len(found) == 0:
             print("[-] Unable to find admin panel")
@@ -85,4 +108,4 @@ def main(url: str, wordlist: str, concurrent: int = 1000) -> None:
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], sys.argv[2])
+    main()
