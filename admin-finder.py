@@ -93,8 +93,8 @@ def main() -> None:
 
         end = time.time()
         elapsed = end - start
-        print("[+] Elapsed: ", elapsed)
-        print("[+] Processed: ", urls.max)
+        print(f"[+] Elapsed: {elapsed:.2f} seconds")
+        print(f"[+] Processed: {urls.max}")
 
         found = [result for result in results if result is not None]
 
