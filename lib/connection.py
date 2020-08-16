@@ -10,17 +10,25 @@ ROBOT_FILE="wordlists/robot.txt"
 
 class HTTP:
     """Handles the http connection"""
+    agents = [line.strip("\n") for line in open(AGENT_FILE).readlines()]
+    load_agent = True
+    logger = logging.getLogger("admin-finder")
+
     def __init__(self) -> None:
         """initialize the http connection object"""
-        self.agents = [line.strip("\n") for line in open(AGENT_FILE).readlines()]
+        # load the agents on first run
+        if HTTP.load_agent:
+            with open(AGENT_FILE) as fp:
+                HTTP.agents = [line.strip("\n") for line in fp.readlines()]
+            HTTP.load_agent = False
+
         self.session = requests.Session()
         self.session.headers = self.get_headers()
-        self.logger = logging.getLogger("admin-finder")
 
     def get_headers(self) -> dict:
         """ Returns randomly chosen UserAgent """
         return {
-            "User-Agent": random.choice(self.agents)
+            "User-Agent": random.choice(HTTP.agents)
         }
 
     def connect(self, url: str) -> int:
