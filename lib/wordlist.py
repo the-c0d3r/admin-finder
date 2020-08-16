@@ -5,13 +5,15 @@ import logging
 class WordListGenerator:
     """Generator that generates the url list"""
     def __init__(self, url, filename):
+        if not url.endswith("/"):
+            url = url + "/"
         self.url = url
-        self.wordlist = [line.strip('\n') for line in open(filename).readlines()]
+        self.wordlist = self._open(filename)
         self.index = 0
         self.max = len(self.wordlist)
         self.logger = logging.getLogger("admin-finder")
 
-    def openFile(self, filename):
+    def _open(self, filename):
         try:
             with open(filename) as filehandle:
                 return [line.strip('\n') for line in filehandle.readlines()]
