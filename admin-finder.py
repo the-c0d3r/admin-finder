@@ -1,88 +1,62 @@
-# -*- coding: utf-8 -*-
-#!/usr/bin/env python3
-
+import aiohttp
 import argparse
-import queue
+import asyncio
+import logging
+import random
+import sys
+import time
 
-from lib.log import setupLogger
+from typing import Optional
+
+
 from lib.wordlist import WordListGenerator
-from lib.worker import WorkerThread
-from lib.connection import URLFormatter
-from lib.connection import RobotHandler
+from lib.robot import RobotHandler
 
 
-def main():
-    """
-    A function to parse the command argument
-    And control the main program
-    """
+AGENT_FILE = "config/agents.ini"
 
-    logger = setupLogger()
+
+async def fetch(session: aiohttp.ClientSession, url: str, semaphore: asyncio.Semaphore) -> Optional[str]:
+    """Fetch the url with the semaphore and return the response"""
+    try:
+        async with session.get(url, timeout=15) as response:
+            if response.status != 404:
+                return response
+    except aiohttp.ClientResponseError as e:
+        logging.warning(e.code)
+    except asyncio.TimeoutError:
+        logging.warning("Timeout")
+    except Exception as e:
+        logging.warning(e)
+
+
+async def fetch_async(urls: [str], semaphore: asyncio.Semaphore) -> [Optional[str]]:
+    """Function that calls the fetch() and await for task completion"""
+    tasks = []
+    header = {"User-Agent": random.choice(load_agents())}
+
+    async with aiohttp.ClientSession(headers=header) as session:
+        for url in urls:
+            task = asyncio.ensure_future(fetch(session, url, semaphore))
+            tasks.append(task)
+        responses = await asyncio.gather(*tasks)
+
+    return responses
+
+
+def load_agents() -> [str]:
+    """loads all the user agents"""
+    with open(AGENT_FILE) as fp:
+        agents = [line.strip("\n") for line in fp.readlines()]
+    return agents
+
+
+def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="admin-finder.py", description="Admin panel finder")
     parser.add_argument("-u", "--url", help="Target url/website")
-    parser.add_argument("-w", "--wordlist", help="Wordlist to use, default 'wordlist.txt'")
-    parser.add_argument("-t", "--threadcount", help="Number of threads to use")
-    parser.add_argument("-c", "--credentials", help="Basic http authentication credentials user:pass format")
-
-    args = parser.parse_args()
-
-    if args.url is None:
-        parser.print_help()
-        print("[-] -u URL paremeter required")
-        exit()
-
-    if args.threadcount is not None:
-        if not args.threadcount.isdigit():
-            print("[-] Process count parameter needs to be digit")
-            exit()
-    else:
-        args.threadcount = 20
-
-    if args.wordlist is None:
-        args.wordlist = "wordlist.txt"
-    args.url = URLFormatter(args.url).geturl()
-
-    if args.credentials:
-        if ":" not in args.credentials:
-            print("[!] Error: credential need to be in this format user:pass")
-            exit()
-        args.credentials = args.credentials.split(":")
-
-    robot_handler = RobotHandler(args.url, args.credentials)
-    result = robot_handler.scan()
-
-    if result:
-        logger.info("Detected keywords in robot file")
-        print("-" * 30)
-        print("\n".join(result))
-        print("-" * 30)
-        print("Would you like to continue scanning?")
-        choice = input("[y]/n: ")
-        if choice == "n":
-            exit()
-
-    try:
-        workQueue = queue.Queue()
-        workerPool = []
-        for _ in range(int(args.threadcount)):
-            thread = WorkerThread(workQueue, args.credentials)
-            thread.daemon = True
-            thread.start()
-            workerPool.append(thread)
-
-        for url in WordListGenerator(args.url, filename=args.wordlist):
-            workQueue.put(url)
-
-        logger.info("Scanner started")
-
-        while not workQueue.empty():
-            pass
-        # to lock the main thread from exiting
-    except KeyboardInterrupt:
-        logger.info("Detected Ctrl + C, terminating")
-        for i in workerPool:
-            i.work = False
-
+    parser.add_argument("-w", "--wordlist", help="Wordlist to use, default 'wordlist.txt'", default = "wordlists/wordlist.txt")
+    parser.add_argument("-t", "--threadcount", help="Number of threads to use", default = 1000)
+    return parser
 
 
 def banner():
@@ -96,6 +70,56 @@ def banner():
     ╚════════════════════════════════════════════╝
     """ + '\033[0m')
 
-if __name__ == "__main__":
+
+def main() -> None:
     banner()
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.url is None:
+        parser.print_help()
+        print("[-] -u URL paremeter required")
+        exit()
+
+    # scan for robot file
+    robot_handler = RobotHandler(args.url)
+    result = robot_handler.scan()
+
+    if result:
+        print("[+] Detected keywords in robot file")
+        print("-" * 30)
+        print("\n".join(result))
+        print("-" * 30)
+        print("Would you like to continue scanning?")
+        choice = input("[y]/n: ")
+        if choice == "n":
+            exit()
+
+    try:
+        semaphore = asyncio.Semaphore(args.threadcount)
+        urls = WordListGenerator(args.url, args.wordlist)
+
+        start = time.time()
+        loop = asyncio.get_event_loop()
+        future = asyncio.ensure_future(fetch_async(urls, semaphore))
+        loop.run_until_complete(future)
+        results = future.result()
+
+        end = time.time()
+        elapsed = end - start
+        print(f"[+] Elapsed: {elapsed:.2f} seconds")
+        print(f"[+] Processed: {urls.max}")
+
+        found = [result for result in results if result is not None]
+
+        if len(found) == 0:
+            print("[-] Unable to find admin panel")
+        else:
+            for result in found:
+                print(f"[+] {result.status}: {result.url}")
+    except KeyboardInterrupt:
+        print("[~] Terminating")
+
+
+if __name__ == '__main__':
     main()
