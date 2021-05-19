@@ -11,6 +11,7 @@ from aiohttp import ClientResponse
 from lib.robot import RobotHandler
 from lib.wordlist import WordListGenerator
 
+
 AGENT_FILE = "config/agents.ini"
 
 
@@ -130,6 +131,6 @@ def main() -> None:
     except KeyboardInterrupt:
         print("[~] Terminating")
 
-
+        
 if __name__ == '__main__':
     main()
