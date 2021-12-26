@@ -28,18 +28,22 @@ class RobotHandler:
         urls = list(map(lambda fname: self.url + fname, self.robot_files))
         # generate URL list with robot file names
 
-        for link in urls:
-            result = requests.get(link)
-            if result.status_code == 200:
-                print(f"[+] Detected robot file at {link}")
+        try:
+            for link in urls:
+                result = requests.get(link)
+                if result.status_code == 200:
+                    print(f"[+] Detected robot file at {link}")
 
-                pages.append(result.text.split('\n'))
+                    pages.append(result.text.split('\n'))
 
-        for page in pages:
-            result = self.analyze(page)
-            for i in result:
-                matched.append(i)
-        return matched
+            for page in pages:
+                result = self.analyze(page)
+                for i in result:
+                    matched.append(i)
+            return matched
+        except requests.exceptions.ConnectionError:
+            print("[!] Unable to connect to server")
+            exit()
 
     def analyze(self, data: list) -> list:
         """
